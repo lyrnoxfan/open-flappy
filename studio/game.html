@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#e9f4ff" id="meta-theme">
+<title>__TITLE__</title>
+<style>
+  :root {
+    --bg: #e9f4ff; --bg2: #fdeef6; --ink: #4a3b6b; --accent: #f2669e;
+    --ground: #f6d9e8; --card-bg: #fff9fc; --card-border: rgba(242,102,158,.20);
+    --btn-bg: #f2669e; --btn-text: #ffffff;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { width: 100%; height: 100%; overflow: hidden; overscroll-behavior: none; }
+  body {
+    font-family: Georgia, "Times New Roman", "Songti SC", "SimSun", serif;
+    background: var(--bg); color: var(--ink);
+    -webkit-touch-callout: none; user-select: none; -webkit-user-select: none;
+  }
+  #game { position: fixed; inset: 0; display: block; touch-action: none; }
+
+  .overlay {
+    position: fixed; inset: 0; z-index: 10;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 24px; cursor: pointer; touch-action: manipulation;
+  }
+  .overlay.hidden { display: none; }
+
+  .title-head {
+    width: clamp(120px, 38vw, 190px); aspect-ratio: 1; border-radius: 50%;
+    margin-bottom: 10px; position: relative; z-index: 1;
+    box-shadow: 0 12px 32px rgba(242,102,158,.35);
+    animation: bob 3s ease-in-out infinite;
+  }
+  .chase { display: flex; align-items: center; gap: 30px; margin-bottom: 14px; position: relative; z-index: 1; }
+  .chase .title-head { margin-bottom: 0; }
+  .title-phone {
+    width: clamp(64px, 19vw, 104px);
+    animation: bob 3s ease-in-out infinite; animation-delay: .4s;
+    filter: drop-shadow(0 10px 20px rgba(111,159,224,.45));
+  }
+  @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+
+  #title-screen h1 {
+    font-size: clamp(60px, 16vw, 128px); font-weight: 700; letter-spacing: .04em;
+    text-shadow: 0 3px 0 rgba(242,102,158,.18), 0 10px 30px rgba(242,102,158,.25);
+    position: relative; z-index: 1;
+  }
+  #title-screen p { margin-top: 20px; font-size: clamp(16px, 4.5vw, 22px); opacity: .85; position: relative; z-index: 1; }
+
+  .floaties { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+  .floaties span {
+    position: absolute; color: var(--accent); opacity: .35;
+    animation: floaty 7s ease-in-out infinite;
+  }
+  @keyframes floaty {
+    0%, 100% { transform: translateY(0) rotate(-8deg); }
+    50% { transform: translateY(-26px) rotate(8deg); }
+  }
+
+  #gameover-screen .card {
+    background: var(--card-bg); border: 2px solid var(--card-border); border-radius: 20px;
+    padding: 32px 40px; box-shadow: 0 14px 44px rgba(242,102,158,.18); cursor: default;
+    min-width: min(80vw, 330px);
+  }
+  #gameover-screen h2 { font-size: clamp(30px, 8vw, 44px); margin-bottom: 6px; color: var(--accent); }
+  #gameover-screen .sub { font-size: 15px; opacity: .7; margin-bottom: 20px; }
+  #gameover-screen .row { display: flex; justify-content: space-between; align-items: baseline; font-size: 18px; margin: 8px 0; }
+  #gameover-screen .row b { font-size: 28px; color: var(--accent); }
+  #gameover-screen .btns { margin-top: 22px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  #gameover-screen button {
+    font-family: inherit; font-size: 17px; padding: 12px 26px; border-radius: 999px;
+    border: none; background: var(--btn-bg); color: var(--btn-text); cursor: pointer;
+    touch-action: manipulation; box-shadow: 0 6px 18px rgba(242,102,158,.35);
+  }
+  #gameover-screen button.ghost {
+    background: transparent; color: var(--accent);
+    border: 2px solid var(--card-border); box-shadow: none;
+  }
+
+  #btn-mute {
+    position: fixed; top: calc(12px + env(safe-area-inset-top)); right: 12px; z-index: 20;
+    width: 44px; height: 44px; border-radius: 50%; border: none;
+    background: rgba(255,255,255,.65); font-size: 22px; cursor: pointer;
+    touch-action: manipulation; box-shadow: 0 4px 14px rgba(0,0,0,.12);
+  }
+</style>
+</head>
+<body oncontextmenu="return false">
+<canvas id="game"></canvas>
+<button id="btn-mute" aria-label="静音切换">🔊</button>
+
+<div id="title-screen" class="overlay">
+  <div class="floaties" aria-hidden="true">
+    <span style="left:12%;top:20%;font-size:26px;animation-delay:0s">♡</span>
+    <span style="left:82%;top:16%;font-size:20px;animation-delay:1.2s">✿</span>
+    <span style="left:20%;top:72%;font-size:22px;animation-delay:2.1s">✿</span>
+    <span style="left:76%;top:68%;font-size:28px;animation-delay:.6s">♡</span>
+    <span style="left:48%;top:10%;font-size:18px;animation-delay:3s">♡</span>
+    <span style="left:64%;top:84%;font-size:20px;animation-delay:1.8s">✿</span>
+  </div>
+  <div class="chase">
+    <img src="a/head.png" class="title-head" alt="">
+    <img src="a/phone.png" class="title-phone" alt="">
+  </div>
+  <h1>__TITLE__</h1>
+  <p>__SUBTITLE__</p>
+</div>
+
+<div id="gameover-screen" class="overlay hidden">
+  <div class="card">
+    <h2>__OVER_TITLE__</h2>
+    <div class="sub">__OVER_SUB__</div>
+    <div class="row"><span>__SCORE_LABEL__</span><b id="final-score">0</b></div>
+    <div class="row"><span>__BEST_LABEL__</span><b id="best-score">0</b></div>
+    <div class="btns">
+      <button id="btn-retry">__BTN_RETRY__</button>
+      <button id="btn-home" class="ghost">__BTN_HOME__</button>
+    </div>
+  </div>
+</div>
+
+<script id="game-config" type="application/json">__CONFIG_JSON__</script>
+<script>
+/* 错误上报（必须在主脚本之前）：捕获报错并显示在屏幕上，方便截图定位 */
+window.__gameErrors = [];
+window.__gameStarted = false;
+window.onerror = function (msg, src, line, col) {
+  window.__gameErrors.push(String(msg) + " @" + line + ":" + col);
+  showGameError();
+  return false;
+};
+function showGameError() {
+  var d = document.getElementById("error-overlay");
+  if (!d) {
+    d = document.createElement("div");
+    d.id = "error-overlay";
+    d.style.cssText = "position:fixed;left:8px;right:8px;bottom:8px;z-index:99;background:#fff0f0;border:1px solid #e88;border-radius:8px;padding:8px;font-size:11px;color:#a00;word-break:break-all;";
+    document.body.appendChild(d);
+  }
+  d.textContent = "游戏出错了，截图发开发者：" + window.__gameErrors.join(" | ");
+  d.style.display = "block";
+}
+setTimeout(function () {
+  if (!window.__gameStarted) showGameError();
+}, 4000);
+</script>
+<script>
+"use strict";
+const CFG = Object.assign({
+  slug: "default", title: "xx快跳",
+  subtitle: "xx，冲冲冲，千万别落网了呀！嘻嘻",
+  overTitle: "xx坠机了", overSub: "再来一次叭~",
+  scoreLabel: "逃脱次数", bestLabel: "最佳 BEST",
+  btnRetry: "就这啊？", btnHome: "你也不行啊",
+  accent: "#f2669e", accentNight: "#ff8fb3"
+}, JSON.parse(document.getElementById("game-config").textContent || "{}"));
+/* ============================================================
+   ★ 换皮区 ★ —— 想换鸟、换墙、换颜色、换文案，只改这一块。
+   白天 / 黑夜两套主题，跟随手机系统深浅色自动切换。
+   ============================================================ */
+const THEMES = {
+  day: {   // 白天：蓝粉萌系
+    bg: "#e9f4ff", bg2: "#fdeef6",
+    ink: "#4a3b6b",
+    accent: "#f2669e",
+    trailColor: "rgba(255,127,174,.30)",
+    cardBg: "#fff9fc",
+    cardBorder: "rgba(242,102,158,.20)",
+    btnBg: "#f2669e",
+    btnText: "#ffffff",
+  },
+  night: { // 黑夜：深蓝 + 粉
+    bg: "#1c1633", bg2: "#141024",
+    ink: "#f3ddf0",
+    accent: "#ff8fb3",
+    trailColor: "rgba(255,143,179,.35)",
+    cardBg: "#221b3d",
+    cardBorder: "rgba(243,221,240,.16)",
+    btnBg: "#ff8fb3",
+    btnText: "#ffffff",
+  },
+};
+
+if (CFG.accent) { THEMES.day.accent = CFG.accent; THEMES.day.btnBg = CFG.accent; }
+if (CFG.accentNight) { THEMES.night.accent = CFG.accentNight; THEMES.night.btnBg = CFG.accentNight; }
+
+let SKIN = THEMES.day;
+
+/** 跟随手机深浅色切换主题 */
+function applyTheme() {
+  const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  SKIN = dark ? THEMES.night : THEMES.day;
+  const root = document.documentElement.style;
+  root.setProperty("--bg", SKIN.bg);
+  root.setProperty("--bg2", SKIN.bg2);
+  root.setProperty("--ink", SKIN.ink);
+  root.setProperty("--accent", SKIN.accent);
+  root.setProperty("--card-bg", SKIN.cardBg);
+  root.setProperty("--card-border", SKIN.cardBorder);
+  root.setProperty("--btn-bg", SKIN.btnBg);
+  root.setProperty("--btn-text", SKIN.btnText);
+  document.getElementById("meta-theme").setAttribute("content", SKIN.bg);
+}
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
+applyTheme();
+
+/* ---------- 换皮图片素材（放 assets/ 目录） ---------- */
+const ASSETS = {
+  head: "a/head.png",           // 主角：主角大头（追在后面）
+  phone: "a/phone.png",         // 右侧装饰手机（纯摆设）
+  handTop: "a/hand-top.png",     // 上墙：往下抓的手
+  handBottom: "a/hand-bottom.png", // 下墙：往上抓的手
+  grass: "a/grass.png",          // 地面：草地
+  flap: "a/flap.mp3",            // 跳跃音效：哒哒哒
+};
+
+/** 画主角：大头图片；没加载出来时回退为粉色圆点 */
+function drawBird(ctx, x, y, r, vy) {
+  if (headImage) {
+    const d = HEAD_D;
+    ctx.drawImage(headImage, x - d / 2, y - d / 2, d, d);
+    return;
+  }
+  ctx.save();
+  ctx.fillStyle = "#ff7fae";
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+/*
+ * 右侧装饰手机：纯摆设，自己在屏幕右侧飞。
+ * 不跟大头跳、不参与碰撞，墙穿过去也没事。
+ */
+const DECO_PHONE_W = 58;
+let decoPhone = { ph: Math.random() * 6.28 };
+function updateDecoPhone(dt) { decoPhone.ph += 0.035 * dt; }
+function drawDecoPhone() {
+  const x = W - 84 + Math.sin(decoPhone.ph * 0.6) * 12;
+  const y = Math.max(90, Math.min(H - GROUND_H - 70,
+    H * 0.30 + Math.sin(decoPhone.ph) * H * 0.14));
+  if (!phoneImage) return;
+  // 速度线，显得在逃
+  ctx.save();
+  ctx.strokeStyle = SKIN.accent;
+  ctx.globalAlpha = 0.4;
+  ctx.lineWidth = 3;
+  ctx.lineCap = "round";
+  for (let i = 0; i < 3; i++) {
+    const ly = y - 18 + i * 18 + Math.sin(decoPhone.ph * 2 + i * 2) * 3;
+    const lx = x - 46 - (i % 2) * 10;
+    ctx.beginPath();
+    ctx.moveTo(lx - 22, ly);
+    ctx.lineTo(lx, ly);
+    ctx.stroke();
+  }
+  ctx.restore();
+  const pw = DECO_PHONE_W, ph = pw * phoneImage.naturalHeight / phoneImage.naturalWidth;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(-0.18 + Math.sin(decoPhone.ph * 1.3) * 0.08);
+  ctx.drawImage(phoneImage, -pw / 2, -ph / 2, pw, ph);
+  ctx.restore();
+}
+
+/*
+ * 画墙（手）：手掌固定大小对准缝口，袖子部分拉伸填满剩余高度，
+ * 这样手掌不会被压扁拉长。
+ * HAND_FRAC = 手掌占图片高度的比例（上图从下往上量，下图从上往下量）
+ */
+const HAND_FRAC = 0.38;
+function drawWalls(w) {
+  drawHandWall(w, true);   // 上：往下抓
+  drawHandWall(w, false);  // 下：往上抓
+}
+function drawHandWall(w, isTop) {
+  const img = isTop ? handTopImage : handBottomImage;
+  if (!img) { // 回退：圆角柱
+    ctx.save();
+    ctx.fillStyle = "#6f9fe0";
+    ctx.beginPath();
+    if (isTop) { ctx.roundRect(w.x, -40, WALL_W, w.gapY + 40, 14); }
+    else { ctx.roundRect(w.x, w.gapY + w.gap, WALL_W, H, 14); }
+    ctx.fill();
+    ctx.restore();
+    return;
+  }
+  const iw = img.naturalWidth, ih = img.naturalHeight;
+  const handH = WALL_W * (HAND_FRAC * ih) / iw; // 手掌绘制高度（等比，不拉伸）
+  if (isTop) {
+    const gapEdge = w.gapY;
+    // 手掌：底部对齐缝口
+    ctx.drawImage(img, 0, ih * (1 - HAND_FRAC), iw, ih * HAND_FRAC,
+                  w.x, gapEdge - handH, WALL_W, handH);
+    // 袖子：从屏幕顶拉伸到手掌顶部
+    const sTop = -40, sBottom = gapEdge - handH;
+    if (sBottom > sTop) {
+      ctx.drawImage(img, 0, 0, iw, ih * (1 - HAND_FRAC),
+                    w.x, sTop, WALL_W, sBottom - sTop);
+    }
+  } else {
+    const gapEdge = w.gapY + w.gap;
+    // 手掌：顶部对齐缝口
+    ctx.drawImage(img, 0, 0, iw, ih * HAND_FRAC,
+                  w.x, gapEdge, WALL_W, handH);
+    // 袖子：从手掌底部拉伸到屏幕底
+    const sTop = gapEdge + handH, sBottom = H;
+    if (sBottom > sTop) {
+      ctx.drawImage(img, 0, ih * HAND_FRAC, iw, ih * (1 - HAND_FRAC),
+                    w.x, sTop, WALL_W, sBottom - sTop);
+    }
+  }
+}
+/* ======================= 换皮区结束 ======================= */
+
+
+/* ---------- 基础设置 ---------- */
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+let W = 0, H = 0, DPR = 1;
+let clouds = [], petals = []; // 背景装饰：云、花瓣
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  canvas.style.width = W + "px"; canvas.style.height = H + "px";
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  initDecor();
+}
+window.addEventListener("resize", resize);
+window.addEventListener("orientationchange", () => setTimeout(resize, 100));
+resize();
+
+/* ---------- 图片素材加载 ---------- */
+let headImage = null, phoneImage = null, handTopImage = null, handBottomImage = null, grassImage = null;
+function loadImg(url, cb) {
+  if (!url) return;
+  const img = new Image();
+  img.onload = () => cb(img);
+  img.src = url;
+}
+loadImg(ASSETS.head, img => headImage = img);
+loadImg(ASSETS.phone, img => phoneImage = img);
+loadImg(ASSETS.handTop, img => handTopImage = img);
+loadImg(ASSETS.handBottom, img => handBottomImage = img);
+loadImg(ASSETS.grass, img => grassImage = img);
+
+/* ---------- 跳跃音效 ---------- */
+let flapSound = null;
+let muted = false;
+try { muted = localStorage.getItem("flappy-dot-muted") === "1"; } catch (e) {}
+function renderMuteBtn() {
+  document.getElementById("btn-mute").textContent = muted ? "🔇" : "🔊";
+}
+try {
+  flapSound = new Audio(ASSETS.flap);
+  flapSound.preload = "auto";
+} catch (e) { /* 不支持音频就静默 */ }
+function playFlap() {
+  if (!flapSound || muted) return;
+  try {
+    flapSound.currentTime = 0; // 连点时从头播，跟手
+    const p = flapSound.play();
+    if (p && p.catch) p.catch(() => {});
+  } catch (e) {}
+}
+
+/* ---------- 背景装饰：云 + 樱花花瓣（纯 canvas 绘制） ---------- */
+const isNight = () => SKIN === THEMES.night;
+
+function initDecor() {
+  clouds = [];
+  const n = Math.max(4, Math.floor(W / 220));
+  for (let i = 0; i < n; i++) {
+    clouds.push({
+      x: Math.random() * (W + 320) - 160,
+      y: Math.random() * H * 0.55,
+      s: 0.6 + Math.random() * 0.9,
+      v: 0.15 + Math.random() * 0.3,   // 比墙慢得多，视差感
+      a: 0.35 + Math.random() * 0.3,
+    });
+  }
+  petals = [];
+  const pn = Math.max(14, Math.floor(W / 26));
+  for (let i = 0; i < pn; i++) petals.push(newPetal(true));
+}
+function newPetal(anyY) {
+  return {
+    x: Math.random() * W,
+    y: anyY ? Math.random() * H : -20,
+    s: 5 + Math.random() * 7,
+    vy: 0.5 + Math.random() * 0.9,
+    ph: Math.random() * Math.PI * 2,
+    rot: Math.random() * Math.PI * 2,
+    vr: (Math.random() - 0.5) * 0.05,
+    a: 0.3 + Math.random() * 0.35,
+  };
+}
+function updateDecor(dt) {
+  for (const c of clouds) {
+    c.x -= c.v * dt;
+    if (c.x < -170 * c.s) { c.x = W + 170 * c.s; c.y = Math.random() * H * 0.55; }
+  }
+  for (let i = 0; i < petals.length; i++) {
+    const p = petals[i];
+    p.ph += 0.02 * dt;
+    p.y += p.vy * dt;
+    p.x += Math.cos(p.ph) * 0.6 * dt; // 左右摇摆飘落
+    p.rot += p.vr * dt;
+    if (p.y > H + 20) petals[i] = newPetal(false);
+  }
+}
+function drawCloud(c) {
+  const night = isNight();
+  ctx.save();
+  ctx.globalAlpha = c.a * (night ? 0.45 : 1);
+  ctx.fillStyle = night ? "#8fa3cc" : "#ffffff";
+  const s = c.s, x = c.x, y = c.y;
+  ctx.beginPath();
+  ctx.arc(x, y, 34 * s, 0, 7);
+  ctx.arc(x + 30 * s, y - 12 * s, 26 * s, 0, 7);
+  ctx.arc(x + 62 * s, y, 30 * s, 0, 7);
+  ctx.arc(x + 30 * s, y + 10 * s, 30 * s, 0, 7);
+  ctx.fill();
+  // 粉色底边，萌感
+  ctx.globalAlpha = c.a * (night ? 0.25 : 0.45);
+  ctx.fillStyle = night ? "#ff8fb3" : "#ffc9de";
+  ctx.beginPath();
+  ctx.ellipse(x + 30 * s, y + 16 * s, 44 * s, 12 * s, 0, 0, 7);
+  ctx.fill();
+  ctx.restore();
+}
+function drawPetal(p) {
+  ctx.save();
+  ctx.translate(p.x, p.y);
+  ctx.rotate(p.rot);
+  ctx.globalAlpha = p.a;
+  ctx.fillStyle = isNight() ? "#e8a4c0" : "#ffb7d5";
+  ctx.beginPath();
+  ctx.ellipse(0, 0, p.s, p.s * 0.62, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = p.a * 0.5;
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.ellipse(0, 0, p.s * 0.45, p.s * 0.28, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+/* ---------- 游戏状态 ---------- */
+const GROUND_H = 64;
+const BIRD_R = 24;      // 碰撞半径（比视觉大头小一点，手感更宽容）
+const HEAD_D = 84;      // 大头绘制直径
+const GRAVITY = 0.45;
+const FLAP_V = -7.8;
+const MAX_FALL = 11;
+const SPEED = 2.7;
+const WALL_W = 74;
+
+let state = "title";   // title | playing | dead
+let birdY, birdV, walls, score, best, trail, frame;
+
+try { best = parseInt(localStorage.getItem("flappy-best-" + CFG.slug) || "0", 10); } catch (e) { best = 0; }
+if (isNaN(best)) best = 0;
+
+function gapSize() { return Math.max(170, H * 0.28); } // 大头需要稍宽的缝
+function spacing()  { return Math.max(250, W * 0.62); }
+
+function reset() {
+  birdY = H * 0.42; birdV = 0;
+  walls = []; score = 0; trail = []; frame = 0;
+  spawnWall(W + 80);
+}
+
+function spawnWall(x) {
+  const gap = gapSize();
+  const margin = 100;
+  const gapY = margin + Math.random() * (H - GROUND_H - margin * 2 - gap);
+  walls.push({ x, gapY, gap, scored: false });
+}
+
+function flap() {
+  if (state === "title") { startGame(); }
+  else if (state === "playing") { birdV = FLAP_V; }
+  // 结算卡已弹出时，空格/点击任意处也能重开（与按钮文案一致）
+  else if (state === "dead" && !document.getElementById("gameover-screen").classList.contains("hidden")) {
+    startGame();
+  } else { return; }
+  if (state === "playing") playFlap();
+}
+
+function startGame() {
+  reset();
+  state = "playing";
+  document.getElementById("title-screen").classList.add("hidden");
+  document.getElementById("gameover-screen").classList.add("hidden");
+}
+
+function die() {
+  state = "dead";
+  if (score > best) { best = score; try { localStorage.setItem("flappy-best-" + CFG.slug, String(best)); } catch (e) {} }
+  document.getElementById("final-score").textContent = score;
+  document.getElementById("best-score").textContent = best;
+  setTimeout(() => document.getElementById("gameover-screen").classList.remove("hidden"), 350);
+}
+
+function circleHitWall(cx, cy, r, wx, wy, ww, wh) {
+  const nx = Math.max(wx, Math.min(cx, wx + ww));
+  const ny = Math.max(wy, Math.min(cy, wy + wh));
+  return (cx - nx) * (cx - nx) + (cy - ny) * (cy - ny) < r * r;
+}
+
+/* ---------- 主循环 ---------- */
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min((now - last) / 16.667, 3);
+  last = now;
+  frame++;
+  updateDecor(dt);
+  updateDecoPhone(dt); // 右侧装饰手机自己飞
+
+  if (state === "playing") {
+    birdV = Math.min(birdV + GRAVITY * dt, MAX_FALL);
+    birdY += birdV * dt;
+    const birdX = W * 0.32;
+
+    trail.push({ x: birdX, y: birdY });
+    if (trail.length > 22) trail.shift();
+
+    const sp = spacing();
+    for (const w of walls) w.x -= SPEED * dt;
+    if (walls.length && walls[0].x < -WALL_W - 20) walls.shift();
+    if (!walls.length || walls[walls.length - 1].x < W - sp) spawnWall(W + 40);
+
+    for (const w of walls) {
+      if (!w.scored && w.x + WALL_W < birdX - BIRD_R) { w.scored = true; score++; }
+      const topH = w.gapY, botY = w.gapY + w.gap;
+      if (circleHitWall(birdX, birdY, BIRD_R - 2, w.x, -40, WALL_W, topH + 40) ||
+          circleHitWall(birdX, birdY, BIRD_R - 2, w.x, botY, WALL_W, H)) {
+        die(); break;
+      }
+    }
+
+    if (birdY < BIRD_R) { birdY = BIRD_R; birdV = 0; }
+    if (birdY + BIRD_R >= H - GROUND_H) { birdY = H - GROUND_H - BIRD_R; die(); }
+  }
+
+  render();
+  requestAnimationFrame(loop);
+}
+
+/* ---------- 渲染 ---------- */
+function render() {
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, SKIN.bg);
+  g.addColorStop(1, SKIN.bg2);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  for (const c of clouds) drawCloud(c); // 云（最底层）
+  drawDecoPhone(); // 右侧装饰手机：墙后面，纯摆设
+
+  const birdX = W * 0.32;
+
+  if (state === "playing" || state === "dead") {
+    for (let i = 0; i < trail.length; i++) {
+      const t = trail[i], a = (i / trail.length) * 0.5;
+      ctx.fillStyle = SKIN.trailColor;
+      ctx.globalAlpha = a;
+      ctx.beginPath();
+      ctx.arc(t.x - (trail.length - i) * 1.2, t.y, BIRD_R * (i / trail.length) * 0.8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  for (const w of walls) drawWalls(w);
+
+  // 地面：草地
+  if (grassImage) {
+    ctx.drawImage(grassImage, 0, H - GROUND_H, W, GROUND_H);
+  } else {
+    ctx.fillStyle = "#f6d9e8";
+    ctx.fillRect(0, H - GROUND_H, W, GROUND_H);
+  }
+  ctx.fillStyle = SKIN.accent;
+  ctx.globalAlpha = 0.5;
+  ctx.fillRect(0, H - GROUND_H, W, 3);
+  ctx.globalAlpha = 1;
+
+  if (state !== "title") {
+    const tilt = Math.max(-0.35, Math.min(0.45, birdV * 0.05));
+    ctx.save();
+    ctx.translate(birdX, birdY); ctx.rotate(tilt); ctx.translate(-birdX, -birdY);
+    drawBird(ctx, birdX, birdY, BIRD_R, birdV);
+    ctx.restore();
+  }
+
+  for (const p of petals) drawPetal(p); // 花瓣（前景，分数之前）
+
+  if (state === "playing" || state === "dead") {
+    ctx.fillStyle = SKIN.ink;
+    ctx.font = "700 " + Math.round(Math.min(W, H) * 0.11) + "px Georgia, serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "top";
+    ctx.fillText(String(score), W / 2, H * 0.08);
+  }
+}
+
+/* ---------- 输入 ---------- */
+function onPress(e) {
+  if (e && e.cancelable) e.preventDefault();
+  flap();
+}
+window.addEventListener("pointerdown", onPress);
+window.addEventListener("keydown", (e) => {
+  if (e.code === "Space" || e.code === "ArrowUp") { e.preventDefault(); onPress(); }
+});
+
+document.getElementById("title-screen").addEventListener("pointerdown", (e) => { e.stopPropagation(); onPress(); });
+document.getElementById("btn-retry").addEventListener("pointerdown", (e) => { e.stopPropagation(); startGame(); });
+document.getElementById("btn-mute").addEventListener("pointerdown", (e) => {
+  e.stopPropagation(); // 点按钮不触发跳跃
+  muted = !muted;
+  try { localStorage.setItem("flappy-dot-muted", muted ? "1" : "0"); } catch (err) {}
+  renderMuteBtn();
+});
+renderMuteBtn();
+document.getElementById("btn-home").addEventListener("pointerdown", (e) => {
+  e.stopPropagation();
+  state = "title";
+  document.getElementById("gameover-screen").classList.add("hidden");
+  document.getElementById("title-screen").classList.remove("hidden");
+});
+
+reset();
+window.__gameStarted = true;
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

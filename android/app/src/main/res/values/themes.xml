@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.FlappyDot" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">#e9f4ff</item>
+        <item name="android:navigationBarColor">#fdeef6</item>
+        <item name="android:statusBarColor">#e9f4ff</item>
+    </style>
+</resources>

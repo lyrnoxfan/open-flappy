@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>整蛊游戏工厂</title>
+<style>
+  :root { --accent: #f2669e; --ink: #4a3b6b; }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(160deg, #e9f4ff, #fdeef6);
+    color: var(--ink); min-height: 100vh; padding: 20px 16px 60px;
+  }
+  h1 { text-align: center; font-size: 26px; margin: 10px 0 4px; }
+  .sub { text-align: center; opacity: .6; font-size: 13px; margin-bottom: 20px; }
+  .card {
+    background: rgba(255,255,255,.72); backdrop-filter: blur(12px);
+    border-radius: 18px; padding: 18px; margin-bottom: 16px;
+    box-shadow: 0 8px 28px rgba(242,102,158,.12);
+  }
+  .card h2 { font-size: 16px; margin-bottom: 12px; color: var(--accent); }
+  label { display: block; font-size: 13px; margin: 10px 0 4px; opacity: .8; }
+  input[type=text], input[type=color] {
+    width: 100%; padding: 10px 12px; border-radius: 12px;
+    border: 1.5px solid rgba(242,102,158,.25); font-size: 15px;
+    background: #fff; color: var(--ink); outline: none;
+  }
+  input[type=color] { height: 44px; padding: 4px; }
+  input:focus { border-color: var(--accent); }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .filebox {
+    border: 1.5px dashed rgba(242,102,158,.4); border-radius: 12px;
+    padding: 12px; text-align: center; margin-top: 8px; background: #fff;
+  }
+  .filebox img { max-width: 100%; max-height: 120px; border-radius: 8px; margin-top: 8px; display: none; }
+  .filebox input { font-size: 13px; }
+  .fname { font-size: 12px; opacity: .6; margin-top: 4px; }
+  #btn-make {
+    width: 100%; padding: 15px; border: none; border-radius: 16px; font-size: 18px;
+    background: var(--accent); color: #fff; font-weight: 700; cursor: pointer;
+    box-shadow: 0 8px 24px rgba(242,102,158,.4); margin-top: 6px;
+  }
+  #btn-make:disabled { opacity: .5; }
+  #result {
+    display: none; margin-top: 14px; padding: 14px; border-radius: 14px;
+    background: #e8f9ef; border: 1.5px solid #7ed6a5; font-size: 14px;
+    word-break: break-all;
+  }
+  #result a { color: #1d7a44; font-weight: 700; }
+  .vitem {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 4px; border-bottom: 1px solid rgba(242,102,158,.12); font-size: 14px;
+  }
+  .vitem a { color: var(--accent); font-weight: 700; text-decoration: none; }
+  .vitem button {
+    border: 1px solid #e88; background: none; color: #e55; border-radius: 8px;
+    padding: 5px 10px; font-size: 12px; cursor: pointer;
+  }
+  .hint { font-size: 12px; opacity: .55; margin-top: 4px; }
+</style>
+</head>
+<body>
+<h1>🎮 整蛊游戏工厂</h1>
+<div class="sub">传图填表，点一下就生成一个新版本</div>
+
+<div class="card">
+  <h2>① 基本信息</h2>
+  <label>网址代号（只能小写字母/数字/横线）</label>
+  <input type="text" id="f-slug" placeholder="laoya" maxlength="32">
+  <div class="hint">生成后地址：<span id="url-preview">…/g/代号/</span></div>
+  <label>游戏标题</label>
+  <input type="text" id="f-title" placeholder="xx快跳">
+</div>
+
+<div class="card">
+  <h2>② 文案</h2>
+  <label>标题页副标题</label>
+  <input type="text" id="f-subtitle" placeholder="xx，冲冲冲，千万别落网了呀！嘻嘻">
+  <div class="row2">
+    <div><label>结算标题</label><input type="text" id="f-overTitle" placeholder="xx坠机了"></div>
+    <div><label>结算副标题</label><input type="text" id="f-overSub" placeholder="再来一次叭~"></div>
+  </div>
+  <div class="row2">
+    <div><label>计分标签</label><input type="text" id="f-scoreLabel" placeholder="逃脱次数"></div>
+    <div><label>最佳标签</label><input type="text" id="f-bestLabel" placeholder="最佳 BEST"></div>
+  </div>
+  <div class="row2">
+    <div><label>重开按钮</label><input type="text" id="f-btnRetry" placeholder="就这啊？"></div>
+    <div><label>首页按钮</label><input type="text" id="f-btnHome" placeholder="你也不行啊"></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>③ 主题色</h2>
+  <div class="row2">
+    <div><label>白天强调色</label><input type="color" id="f-accent" value="#f2669e"></div>
+    <div><label>黑夜强调色</label><input type="color" id="f-accentNight" value="#ff8fb3"></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>④ 素材 <span class="hint">（不传就用默认）</span></h2>
+  <div id="files"></div>
+</div>
+
+<button id="btn-make">🚀 一键生成</button>
+<div id="result"></div>
+
+<div class="card" style="margin-top:16px">
+  <h2>📦 已生成的版本</h2>
+  <div id="vlist"><div class="hint">加载中…</div></div>
+</div>
+
+<script>
+const FILE_FIELDS = [
+  ["head", "人物大头（圆形头像）", "image/*"],
+  ["handTop", "上抓手（往下抓的手）", "image/*"],
+  ["handBottom", "下抓手（往上抓的手）", "image/*"],
+  ["grass", "地面草地", "image/*"],
+  ["phone", "装饰手机", "image/*"],
+  ["flap", "跳跃音效", "audio/*"],
+];
+const filesBox = document.getElementById("files");
+for (const [key, label, accept] of FILE_FIELDS) {
+  const div = document.createElement("div");
+  div.className = "filebox";
+  div.innerHTML = `<div style="font-size:14px;font-weight:700">${label}</div>
+    <input type="file" id="file-${key}" accept="${accept}">
+    <img id="prev-${key}"><div class="fname" id="fname-${key}"></div>`;
+  filesBox.appendChild(div);
+  div.querySelector("input").addEventListener("change", (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    document.getElementById("fname-" + key).textContent = f.name + " (" + Math.round(f.size/1024) + "KB)";
+    if (f.type.startsWith("image/")) {
+      const img = document.getElementById("prev-" + key);
+      img.src = URL.createObjectURL(f);
+      img.style.display = "block";
+    }
+  });
+}
+
+document.getElementById("f-slug").addEventListener("input", (e) => {
+  const s = e.target.value.trim() || "代号";
+  document.getElementById("url-preview").textContent = location.origin + "/g/" + s + "/";
+});
+
+const TEXT_FIELDS = ["title","subtitle","overTitle","overSub","scoreLabel","bestLabel","btnRetry","btnHome"];
+async function loadList() {
+  const box = document.getElementById("vlist");
+  try {
+    const r = await fetch("/api/variants");
+    const vs = await r.json();
+    if (!vs.length) { box.innerHTML = '<div class="hint">还没有版本，快做第一个吧</div>'; return; }
+    box.innerHTML = "";
+    for (const v of vs) {
+      const d = document.createElement("div");
+      d.className = "vitem";
+      d.innerHTML = `<div><a href="/g/${v.slug}/" target="_blank">/g/${v.slug}/</a><div class="hint">${esc(v.title)}</div></div>`;
+      const del = document.createElement("button");
+      del.textContent = "删除";
+      del.onclick = async () => {
+        if (!confirm("删除 " + v.slug + "？")) return;
+        await fetch("/api/variants/" + encodeURIComponent(v.slug), { method: "DELETE" });
+        loadList();
+      };
+      d.appendChild(del);
+      box.appendChild(d);
+    }
+  } catch (e) { box.innerHTML = '<div class="hint">加载失败</div>'; }
+}
+function esc(s) { return String(s||"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+document.getElementById("btn-make").onclick = async () => {
+  const slug = document.getElementById("f-slug").value.trim();
+  if (!/^[a-z0-9-]{2,32}$/.test(slug)) { alert("代号只能用小写字母、数字、横线，2-32位"); return; }
+  const btn = document.getElementById("btn-make");
+  const res = document.getElementById("result");
+  btn.disabled = true; btn.textContent = "生成中…";
+  try {
+    const fd = new FormData();
+    fd.append("slug", slug);
+    for (const k of TEXT_FIELDS) fd.append(k, document.getElementById("f-" + k).value.trim());
+    fd.append("accent", document.getElementById("f-accent").value);
+    fd.append("accentNight", document.getElementById("f-accentNight").value);
+    for (const [key] of FILE_FIELDS) {
+      const f = document.getElementById("file-" + key).files[0];
+      if (f) fd.append("file_" + key, f);
+    }
+    const r = await fetch("/api/variants", { method: "POST", body: fd });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || ("HTTP " + r.status));
+    const url = location.origin + j.url;
+    res.style.display = "block";
+    res.innerHTML = `✅ 生成成功！<br><a href="${j.url}" target="_blank">${url}</a><br><span class="hint">发给朋友整蛊吧</span>`;
+    loadList();
+  } catch (e) {
+    res.style.display = "block";
+    res.style.background = "#fde8e8"; res.style.borderColor = "#e88";
+    res.textContent = "❌ 失败：" + e.message;
+  } finally {
+    btn.disabled = false; btn.textContent = "🚀 一键生成";
+  }
+};
+loadList();
+</script>
+</body>
+</html>
