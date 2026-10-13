@@ -1,0 +1,87 @@
+name: Android APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Sync assets and build APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Android SDK components
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          test -x "$SDKMANAGER"
+          set +o pipefail
+          yes | "$SDKMANAGER" --licenses >/dev/null
+          set -o pipefail
+          "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.7.1'
+
+      - name: Sync latest hand wall assets from web repository
+        shell: bash
+        run: |
+          set -euo pipefail
+          ASSET_DIR="app/src/main/assets/www/assets"
+          mkdir -p "$ASSET_DIR"
+          curl --fail --location --retry 3 --retry-delay 2 \
+            "https://flappy-dot.pages.dev/assets/hand-top.png" \
+            --output "$ASSET_DIR/hand-top.png"
+          curl --fail --location --retry 3 --retry-delay 2 \
+            "https://flappy-dot.pages.dev/assets/hand-bottom.png" \
+            --output "$ASSET_DIR/hand-bottom.png"
+          python3 - <<'PY'
+          from pathlib import Path
+          for name in ("hand-top.png", "hand-bottom.png"):
+              p = Path("app/src/main/assets/www/assets") / name
+              data = p.read_bytes()
+              if not data.startswith(b"\x89PNG\r\n\x1a\n"):
+                  raise SystemExit(f"{name}: not a PNG file")
+              if len(data) < 100_000:
+                  raise SystemExit(f"{name}: downloaded file is unexpectedly small ({len(data)} bytes)")
+              print(f"{name}: {len(data)} bytes; PNG signature valid")
+          PY
+          if ! git diff --quiet -- "$ASSET_DIR/hand-top.png" "$ASSET_DIR/hand-bottom.png"; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add "$ASSET_DIR/hand-top.png" "$ASSET_DIR/hand-bottom.png"
+            git commit -m "Sync updated hand wall assets [skip ci]"
+            git push
+          else
+            echo "Hand wall assets already match the web repository."
+          fi
+
+      - name: Build Debug APK
+        run: gradle --no-daemon assembleDebug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: laoya-kuaipao-android-5.2.0-debug
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
