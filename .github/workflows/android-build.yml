@@ -3,16 +3,31 @@ name: Android APK
 on:
   push:
     branches: [main]
+    paths:
+      - "android/**"
+      - ".github/workflows/android-build.yml"
+  pull_request:
+    paths:
+      - "android/**"
+      - ".github/workflows/android-build.yml"
   workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
     name: Sync assets and build APK
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+        working-directory: android
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -26,7 +41,6 @@ jobs:
           java-version: '17'
 
       - name: Install Android SDK components
-        shell: bash
         run: |
           set -euo pipefail
           SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
@@ -37,13 +51,13 @@ jobs:
           set -o pipefail
           "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0"
 
+      # 工程没有 gradle wrapper，固定 Gradle 版本（与 AGP 9.4 兼容）
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.7.1'
 
       - name: Sync latest hand wall assets from web repository
-        shell: bash
         run: |
           set -euo pipefail
           ASSET_DIR="app/src/main/assets/www/assets"
@@ -65,23 +79,39 @@ jobs:
                   raise SystemExit(f"{name}: downloaded file is unexpectedly small ({len(data)} bytes)")
               print(f"{name}: {len(data)} bytes; PNG signature valid")
           PY
-          if ! git diff --quiet -- "$ASSET_DIR/hand-top.png" "$ASSET_DIR/hand-bottom.png"; then
+          if git diff --quiet -- "$ASSET_DIR/hand-top.png" "$ASSET_DIR/hand-bottom.png"; then
+            echo "Hand wall assets already match the web repository."
+          elif [ "${{ github.event_name }}" != "pull_request" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add "$ASSET_DIR/hand-top.png" "$ASSET_DIR/hand-bottom.png"
             git commit -m "Sync updated hand wall assets [skip ci]"
             git push
           else
-            echo "Hand wall assets already match the web repository."
+            echo "Assets differ, but not pushing from a PR / non-main ref."
           fi
 
       - name: Build Debug APK
-        run: gradle --no-daemon assembleDebug
+        run: gradle --no-daemon --stacktrace assembleDebug
+
+      - name: Verify APK
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          apks=(app/build/outputs/apk/debug/*.apk)
+          if [ ${#apks[@]} -eq 0 ]; then
+            echo "::error::没有找到 APK: android/app/build/outputs/apk/debug/"
+            exit 1
+          fi
+          for f in "${apks[@]}"; do
+            if [ ! -s "$f" ]; then echo "::error::APK 为空: $f"; exit 1; fi
+            ls -l "$f"
+          done
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: laoya-kuaipao-android-5.2.0-debug
-          path: app/build/outputs/apk/debug/*.apk
+          name: laoya-kuaipao-android-debug
+          path: android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 14
